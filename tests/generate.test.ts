@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { GenerationValidationError, generateTrainingPack, parseTrainingPack, type LlmClient } from "@/lib/generate";
-import { QuizQuestionSchema, TrainingPackSchema } from "@/lib/schemas";
+import { GenerationValidationError, generateTrainingPack, parseTrainingPack, shuffleOptions, type LlmClient } from "@/lib/generate";
+import { QuizQuestionSchema, TrainingPackSchema, countSentences } from "@/lib/schemas";
 
 const question = (i: number) => ({
   question: `Question ${i}?`,
@@ -43,7 +43,20 @@ describe("schemas", () => {
     expect(QuizQuestionSchema.safeParse({ ...rest, sourceStep: "  " }).success).toBe(false);
   });
 
-  it("enforces 5-8 questions, 4 options and a 3-sentence summary", () => {
+  it("accepts 2-4 sentence summaries, rejects 1 and 5+", () => {
+    const p = validPack();
+    const withSummary = (summary: string) => TrainingPackSchema.safeParse({ ...p, module: { ...p.module, summary } }).success;
+    expect(withSummary("One. Two.")).toBe(true);
+    expect(withSummary("One. Two. Three. Four.")).toBe(true);
+    expect(withSummary("Only one.")).toBe(false);
+    expect(withSummary("One. Two. Three. Four. Five.")).toBe(false);
+  });
+
+  it("does not count abbreviations like e.g. as sentence ends", () => {
+    expect(countSentences("Clean surfaces (e.g. bowl and paddles) first. Then sanitize. Record it, i.e. sign the log.")).toBe(3);
+  });
+
+  it("enforces 5-8 questions, 4 options and a 2-4 sentence summary", () => {
     const few = { ...validPack(), quiz: [1, 2, 3].map(question) };
     const many = { ...validPack(), quiz: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(question) };
     const badOptions = { ...validPack(), quiz: [1, 2, 3, 4, 5].map((i) => ({ ...question(i), options: ["A", "B"] })) };
@@ -73,6 +86,29 @@ describe("parseTrainingPack", () => {
     const r = parseTrainingPack(JSON.stringify(pack));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.issues.join("\n")).toContain("quiz.2.sourceStep");
+  });
+});
+
+describe("shuffleOptions", () => {
+  it("keeps the correct answer text and remaps correctIndex", () => {
+    const pack = TrainingPackSchema.parse(validPack());
+    let seed = 7;
+    const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const shuffled = shuffleOptions(pack, rng);
+    shuffled.quiz.forEach((q, i) => {
+      const orig = pack.quiz[i];
+      expect([...q.options].sort()).toEqual([...orig.options].sort());
+      expect(q.options[q.correctIndex]).toBe(orig.options[orig.correctIndex]);
+    });
+    expect(shuffled.quiz.some((q, i) => q.correctIndex !== pack.quiz[i].correctIndex)).toBe(true);
+    expect(pack.quiz[0].options).toEqual(["A", "B", "C", "D"]); // input not mutated
+  });
+
+  it("is applied by generateTrainingPack after validation", async () => {
+    const { client } = mockClient([JSON.stringify(validPack())]);
+    const out = await generateTrainingPack(client, "m", "sop", () => 0); // rng=0 rotates options
+    for (const q of out.quiz) expect(q.options[q.correctIndex]).toBe("B");
+    expect(out.quiz[0].options).not.toEqual(["A", "B", "C", "D"]);
   });
 });
 

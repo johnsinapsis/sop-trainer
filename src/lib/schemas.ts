@@ -3,11 +3,18 @@ import { z } from "zod";
 const nonEmpty = (what: string) =>
   z.string().trim().min(1, `${what} must not be empty`);
 
+/** Rough sentence count; abbreviations like "e.g." are ignored. Deliberately approximate. */
+export function countSentences(text: string): number {
+  const cleaned = text.replace(/\b(e\.g|i\.e|etc|vs|approx|no|fig)\./gi, "$1");
+  return (cleaned.match(/[.!?](\s|$)/g) ?? []).length;
+}
+
 export const TrainingModuleSchema = z.object({
-  summary: nonEmpty("summary").refine(
-    (s) => (s.match(/[.!?](\s|$)/g) ?? []).length === 3,
-    "summary must be exactly 3 sentences",
-  ),
+  // The prompt asks for 3 sentences; accept 2-4 since counting is approximate.
+  summary: nonEmpty("summary").refine((s) => {
+    const n = countSentences(s);
+    return n >= 2 && n <= 4;
+  }, "summary must be 2-4 sentences (aim for 3)"),
   keySteps: z
     .array(nonEmpty("key step"))
     .min(3, "provide at least 3 key steps")

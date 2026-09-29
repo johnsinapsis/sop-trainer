@@ -61,7 +61,7 @@ The provider must support `response_format: { type: "json_object" }`; the prompt
 
 ## AI output validation
 
-The model's reply is parsed and checked against zod schemas (`summary` = exactly 3 sentences, ≥3 key steps, 5–8 quiz questions with 4 options, a valid `correctIndex`, and a non-empty `sourceStep` + `explanation` on every question). On invalid JSON or a schema failure, the request is retried **once** with the exact validation errors fed back to the model. If it still fails, the API returns a clear error (HTTP 502) and the UI displays it with details.
+The model's reply is parsed and checked against zod schemas (`summary` = 2–4 sentences (the prompt asks for 3; the count is approximate and ignores abbreviations like "e.g."), ≥3 key steps, 5–8 quiz questions with 4 options, a valid `correctIndex`, and a non-empty `sourceStep` + `explanation` on every question). On invalid JSON or a schema failure, the request is retried **once** with the exact validation errors fed back to the model. If it still fails, the API returns a clear error (HTTP 502) and the UI displays it with details.
 
 ## How I built it
 

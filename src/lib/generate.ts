@@ -1,4 +1,4 @@
-import { TrainingPackSchema, formatZodIssues, type TrainingPack } from "./schemas";
+import { TrainingPackSchema, formatZodIssues, type QuizQuestion, type TrainingPack } from "./schemas";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -75,10 +75,24 @@ export function parseTrainingPack(
     : { ok: false, issues: formatZodIssues(result.error) };
 }
 
+/** Fisher-Yates shuffle of each question's options, remapping correctIndex. Returns a new pack. */
+export function shuffleOptions(pack: TrainingPack, rng: () => number = Math.random): TrainingPack {
+  const quiz = pack.quiz.map((q): QuizQuestion => {
+    const order = q.options.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    return { ...q, options: order.map((i) => q.options[i]), correctIndex: order.indexOf(q.correctIndex) };
+  });
+  return { ...pack, quiz };
+}
+
 export async function generateTrainingPack(
   client: LlmClient,
   model: string,
   sopText: string,
+  rng: () => number = Math.random,
 ): Promise<TrainingPack> {
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -95,7 +109,7 @@ export async function generateTrainingPack(
     });
     const raw = res.choices[0]?.message?.content ?? "";
     const parsed = parseTrainingPack(raw);
-    if (parsed.ok) return parsed.data;
+    if (parsed.ok) return shuffleOptions(parsed.data, rng);
 
     issues = parsed.issues;
     messages.push(
