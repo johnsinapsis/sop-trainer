@@ -9,7 +9,6 @@ Paste (or upload) a manufacturing Standard Operating Procedure and get a short *
 - No auth, no database. The API key stays on the server.
 
 ![SOP Trainer screenshot](docs/screenshot.png)
-<!-- TODO: replace with a real screenshot -->
 
 ## Architecture
 
@@ -52,7 +51,7 @@ Any OpenAI-compatible API works; only environment variables change (in `.env.loc
 
 | Provider | `LLM_BASE_URL` | Example `LLM_MODEL` |
 | --- | --- | --- |
-| Groq (default) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| Groq (default) | `https://api.groq.com/openai/v1` | `openai/gpt-oss-120b` |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
 | OpenRouter | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct` |
 | Ollama (local) | `http://localhost:11434/v1` | `llama3.1` (set any non-empty `LLM_API_KEY`) |
